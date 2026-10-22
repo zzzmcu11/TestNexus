@@ -1,0 +1,16 @@
+# Core Dependencies
+Flask>=3.0.0
+python-docx>=1.1.0
+python-dotenv>=1.0.0
+
+# AI & LangChain Dependencies
+langchain>=0.1.0
+langchain-openai>=0.1.0
+langchain-core>=0.1.0
+openai>=1.6.0
+
+# Additional Utilities
+pydantic>=2.5.0
+typing-extensions>=4.8.0
+uuid>=1.30
+openpyxl>=3.1.0

@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TestNexus</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .loading-spinner {
+            display: none;
+        }
+        .test-point-card {
+            transition: all 0.3s ease;
+        }
+        .test-point-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .priority-critical { border-left: 4px solid #ef4444; }
+        .priority-high { border-left: 4px solid #f97316; }
+        .priority-medium { border-left: 4px solid #eab308; }
+        .priority-low { border-left: 4px solid #22c55e; }
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+        }
+        .markdown-content th, .markdown-content td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        .markdown-content th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+        .step-number {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            margin-right: 8px;
+            font-size: 0.875rem;
+        }
+        
+        /* 磨砂玻璃效果样式 */
+        .glass-theme body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass-theme .container {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .glass-theme .bg-white {
+            background: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .glass-theme .bg-gray-50 {
+            background: rgba(249, 250, 251, 0.7) !important;
+        }
+        .glass-theme .bg-blue-50, 
+        .glass-theme .bg-green-50,
+        .glass-theme .bg-purple-50,
+        .glass-theme .bg-orange-50,
+        .glass-theme .bg-yellow-50 {
+            background: rgba(255, 255, 255, 0.85) !important;
+            backdrop-filter: blur(5px);
+        }
+        .glass-theme .border {
+            border-color: rgba(255, 255, 255, 0.3) !important;
+        }
+        .glass-theme .text-gray-800 {
+            color: #1f2937 !important;
+        }
+        .glass-theme .text-gray-600 {
+            color: #4b5563 !important;
+        }
+        .glass-theme .text-gray-500 {
+            color: #6b7280 !important;
+        }
+        .glass-theme .test-point-card {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .glass-theme #uploadArea {
+            background: rgba(255, 255, 255, 0.7) !important;
+            border-color: rgba(255, 255, 255, 0.4) !important;
+        }
+        .glass-theme #uploadArea:hover {
+            background: rgba(255, 255, 255, 0.9) !important;
+            border-color: rgba(59, 130, 246, 0.5) !important;
+        }
+        .glass-theme footer {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        /* 配置对话框样式 */
+        .config-dialog-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .config-dialog {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .config-tab {
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+        }
+        .config-tab.active {
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen glass-theme">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-10">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        <i class="fas fa-robot text-blue-500 mr-3"></i>TestNexus
+                    </h1>
+                    <p class="text-gray-600 mt-2">上传您的需求文档(.docx)，AI将自动分析并生成详细的测试点和测试用例</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+                        <div class="flex items-center">
+                            <i class="fas fa-server text-blue-500 mr-2"></i>
+                            <span class="font-medium text-blue-700">端口: 18150</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-6">
+                        <div class="flex items-start">
+                            <div class="mr-4 text-blue-500 text-2xl">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <div class="w-full">
+                                <h3 class="font-bold text-gray-800 text-lg mb-2">系统特性</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div class="bg-white rounded-lg p-4 border border-blue-100">
+                                        <div class="flex items-center mb-2">
+                                            <i class="fas fa-file-word text-blue-500 mr-2"></i>
+                                            <h4 class="font-semibold">文档解析</h4>
+                                        </div>
+                                        <p class="text-sm text-gray-600">自动读取和解析Word(.docx)格式的需求文档</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-4 border border-blue-100">
+                                        <div class="flex items-center mb-2">
+                                            <i class="fas fa-brain text-purple-500 mr-2"></i>
+                                            <h4 class="font-semibold">AI深度分析</h4>
+                                        </div>
+                                        <p class="text-sm text-gray-600">支持DeepSeek-Reasoner和Qwen3-Max模型进行智能分析</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-4 border border-blue-100">
+                                        <div class="flex items-center mb-2">
+                                            <i class="fas fa-vial text-green-500 mr-2"></i>
+                                            <h4 class="font-semibold">测试用例生成</h4>
+                                        </div>
+                                        <p class="text-sm text-gray-600">为每个测试点生成详细、可执行的测试用例</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-4 border border-blue-100">
+                                        <div class="flex items-center mb-2">
+                                            <i class="fas fa-chart-line text-orange-500 mr-2"></i>
+                                            <h4 class="font-semibold">实时进度</h4>
+                                        </div>
+                                        <p class="text-sm text-gray-600">实时显示测试点和测试用例生成进度</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- 模型选择区域 -->
+                                <div class="mt-6 pt-6 border-t border-blue-100">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="font-semibold text-gray-700">AI模型选择</h4>
+                                    </div>
+                                    <div class="flex flex-wrap gap-3" id="modelSelection">
+                                        <button class="model-option bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center" data-model="deepseek-reasoner">
+                                            <i class="fas fa-robot mr-2"></i>DeepSeek-Reasoner
+                                            <span class="ml-2 bg-blue-700 text-white text-xs px-2 py-1 rounded-full"></span>
+                                        </button>
+                                        <button class="model-option bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors flex items-center" data-model="qwen-max">
+                                            <i class="fas fa-bolt mr-2"></i>Qwen3-Max
+                                            <span class="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full"></span>
+                                        </button>
+                                        <button class="model-option bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors flex items-center" data-model="siliconflow">
+                                            <i class="fas fa-atom mr-2"></i>Siliconflow
+                                            <span class="ml-2 bg-purple-500 text-white text-xs px-2 py-1 rounded-full"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Upload and Results Summary -->
+            <div class="lg:col-span-1">
+                <!-- Upload Section -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-8 border border-gray-200">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-upload mr-2 text-blue-500"></i>上传需求文档
+                    </h2>
+                    
+                    <div id="uploadArea" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer bg-gray-50">
+                        <div class="text-gray-400 text-5xl mb-4">
+                            <i class="fas fa-file-word"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-700 mb-2">拖放或点击上传</h3>
+                        <p class="text-gray-500 text-sm mb-4">支持 .docx 格式的需求文档</p>
+                        <label class="inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg cursor-pointer transition-colors">
+                            <input type="file" id="fileInput" class="hidden" accept=".docx">
+                            <i class="fas fa-folder-open mr-2"></i>选择文件
+                        </label>
+                    </div>
+                    
+                    <!-- 控制按钮组 -->
+                    <div id="controlButtons" class="mt-4 flex justify-center space-x-4" style="display: none;">
+                        <button id="startBtn" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:bg-green-300">开始</button>
+                        <button id="pauseBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:bg-yellow-300" disabled>暂停</button>
+                        <button id="stopBtn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:bg-red-300" disabled>停止</button>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-700 font-medium">文档要求：</span>
+                        </div>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li><i class="fas fa-check-circle text-green-500 mr-2"></i>文件大小不超过 16MB</li>
+                            <li><i class="fas fa-check-circle text-green-500 mr-2"></i>必须是 .docx 格式</li>
+                            <li><i class="fas fa-check-circle text-green-500 mr-2"></i>建议文档包含清晰的需求描述</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Loading Spinner -->
+                    <div id="loadingSpinner" class="loading-spinner mt-6 text-center">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                        <p class="mt-3 text-gray-600 font-medium">AI正在分析文档并生成测试用例...</p>
+                        <p class="text-sm text-gray-500 mt-1">这可能需要一些时间，请耐心等待</p>
+                    </div>
+                </div>
+
+                <!-- Results Summary -->
+                <div id="resultsSummary" class="bg-white rounded-xl shadow-lg p-6 border border-gray-200" style="display: none;">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-chart-bar mr-2 text-green-500"></i>分析结果概览
+                    </h2>
+                    
+                    <div id="summaryStats" class="grid grid-cols-2 gap-4 mb-6">
+                        <!-- 动态填充 -->
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="font-semibold text-gray-700 mb-3">测试点优先级分布</h3>
+                        <div id="priorityChart" class="space-y-2">
+                            <!-- 动态填充 -->
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                            <div>
+                                <h4 class="font-medium text-blue-800 mb-1">下一步操作</h4>
+                                <p class="text-sm text-blue-700">点击右侧的测试点查看详细测试用例，或导出分析结果。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Section -->
+                <div id="historySection" class="bg-white rounded-xl shadow-lg p-6 border border-gray-200 mt-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">
+                            <i class="fas fa-history mr-2 text-orange-500"></i>历史记录
+                        </h2>
+                        <button id="refreshHistoryBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium py-1 px-3 rounded transition-colors">
+                            <i class="fas fa-sync-alt mr-1"></i>刷新
+                        </button>
+                    </div>
+                    
+                    <div id="historyContainer" class="space-y-3 max-h-80 overflow-y-auto">
+                        <!-- 动态填充历史记录 -->
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="fas fa-history text-3xl mb-3"></i>
+                            <p>暂无历史记录</p>
+                            <p class="text-sm mt-1">上传文档后，分析记录将在此显示</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-center">
+                        <button id="clearHistoryBtn" class="text-sm text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-trash-alt mr-1"></i>清空历史记录
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Test Points and Test Cases -->
+            <div class="lg:col-span-2">
+                <!-- Test Points Section -->
+                <div id="testPointsSection" style="display: none;">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">
+                            <i class="fas fa-list-check mr-2 text-purple-500"></i>测试点分析结果
+                        </h2>
+                        <button id="exportBtn" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-download mr-2"></i>导出结果
+                        </button>
+                    </div>
+                    
+                    <div id="testPointsContainer" class="space-y-4">
+                        <!-- 动态填充测试点卡片 -->
+                    </div>
+                </div>
+
+                <!-- Test Cases Section -->
+                <div id="testCasesSection" style="display: none;">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">
+                            <i class="fas fa-vial mr-2 text-red-500"></i>测试用例详情
+                        </h2>
+                        <button id="backToPointsBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>返回测试点列表
+                        </button>
+                    </div>
+                    
+                    <div id="testCasesContainer" class="space-y-6">
+                        <!-- 动态填充测试用例 -->
+                    </div>
+                </div>
+
+                <!-- Initial State Message -->
+                <div id="initialMessage" class="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-200">
+                    <div class="text-gray-300 text-6xl mb-6">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-700 mb-3">开始您的测试分析</h3>
+                    <p class="text-gray-500 text-lg mb-8 max-w-xl mx-auto">
+                        上传您的需求文档，系统将使用AI技术自动分析需求，提取测试点并生成详细的测试用例。
+                    </p>
+                    <div class="flex justify-center space-x-4">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <div class="text-blue-500 text-3xl mb-2">
+                                <i class="fas fa-upload"></i>
+                            </div>
+                            <p class="font-medium text-blue-700">上传文档</p>
+                        </div>
+                        <div class="text-gray-300 text-3xl flex items-center">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <div class="text-purple-500 text-3xl mb-2">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <p class="font-medium text-purple-700">AI分析</p>
+                        </div>
+                        <div class="text-gray-300 text-3xl flex items-center">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <div class="text-green-500 text-3xl mb-2">
+                                <i class="fas fa-vial"></i>
+                            </div>
+                            <p class="font-medium text-green-700">生成测试</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 pt-8 border-t border-gray-200 text-center text-gray-500 text-sm">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <p>TestNexus &copy; 2025</p>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="flex items-center">
+                        <i class="fas fa-circle text-green-500 mr-2"></i>
+                        <span id="statusIndicator">系统就绪</span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-server mr-2"></i>
+                        <span>端口: 18150</span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-code-branch mr-2"></i>
+                        <span>版本: 1.0.0</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- OpenAI 配置对话框 -->
+    <div id="openAIConfigDialog" class="config-dialog-overlay">
+        <div class="config-dialog">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-cog text-blue-500 mr-2"></i>AI模型配置
+                    </h3>
+                    <button id="closeConfigDialogBtn" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="border-b border-gray-200 mb-6">
+                    <div class="flex space-x-4">
+                        <div class="config-tab active" data-tab="general">通用配置</div>
+                        <div class="config-tab" data-tab="openai">OpenAI配置</div>
+                        <div class="config-tab" data-tab="qwen">通义千问配置</div>
+                        <div class="config-tab" data-tab="deepseek">DeepSeek配置</div>
+                    </div>
+                </div>
+                
+                <div id="generalConfigTab" class="config-tab-content space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">默认模型</label>
+                        <select id="defaultModelSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="deepseek-reasoner">DeepSeek-Reasoner</option>
+                            <option value="qwen-max">Qwen3-Max</option>
+                            <option value="siliconflow">硅基流动</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5-Turbo</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            温度 (Temperature)
+                            <span class="text-gray-500 text-sm ml-2" id="temperatureValue">0.1</span>
+                        </label>
+                        <input type="range" id="temperatureSlider" min="0" max="1" step="0.1" value="0.1" class="w-full">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>更精确</span>
+                            <span>更随机</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">温度值越低，输出越确定；温度值越高，输出越随机有创造性。</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">最大Token数</label>
+                        <input type="number" id="maxTokensInput" min="512" max="8192" step="512" value="4096" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">控制AI响应的最大长度，数值越大响应越长。</p>
+                    </div>
+                </div>
+                
+                <div id="openaiConfigTab" class="config-tab-content space-y-4" style="display: none;">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                            <div>
+                                <h4 class="font-medium text-blue-800 mb-1">OpenAI配置说明</h4>
+                        <p class="text-sm text-blue-700">配置OpenAI兼容的API，支持硅基流动、GPT-3.5等模型。</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API密钥</label>
+                        <input type="password" id="openaiApiKey" placeholder="输入OpenAI API密钥" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">您的OpenAI API密钥，请妥善保管。</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API基础URL</label>
+                        <input type="text" id="openaiBaseUrl" placeholder="https://api.openai.com/v1" value="https://api.openai.com/v1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">OpenAI API的基础URL，默认使用官方地址。</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
+                        <input type="text" id="openaiModelName" placeholder="gpt-4" value="gpt-4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">要使用的OpenAI模型名称，如gpt-4, gpt-3.5-turbo等。</p>
+                    </div>
+                </div>
+                
+                <div id="qwenConfigTab" class="config-tab-content space-y-4" style="display: none;">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-green-500 mt-1 mr-3"></i>
+                            <div>
+                                <h4 class="font-medium text-green-800 mb-1">通义千问配置说明</h4>
+                                <p class="text-sm text-green-700">配置阿里云通义千问API，支持Qwen系列模型。</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API密钥</label>
+                        <input type="password" id="qwenApiKey" placeholder="输入通义千问API密钥" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">您的阿里云通义千问API密钥。</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API基础URL</label>
+                        <input type="text" id="qwenBaseUrl" placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1" value="https://dashscope.aliyuncs.com/compatible-mode/v1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">通义千问API的基础URL。</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
+                        <input type="text" id="qwenModelName" placeholder="qwen-max" value="qwen-max" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">要使用的通义千问模型名称，如qwen-max, qwen-plus等。</p>
+                    </div>
+                </div>
+                
+                <div id="deepseekConfigTab" class="config-tab-content space-y-4" style="display: none;">
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-purple-500 mt-1 mr-3"></i>
+                            <div>
+                                <h4 class="font-medium text-purple-800 mb-1">DeepSeek配置说明</h4>
+                                <p class="text-sm text-purple-700">配置DeepSeek API，支持DeepSeek系列模型。</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API密钥</label>
+                        <input type="password" id="deepseekApiKey" placeholder="输入DeepSeek API密钥" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">您的DeepSeek API密钥。</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API基础URL</label>
+                        <input type="text" id="deepseekBaseUrl" placeholder="https://api.deepseek.com" value="https://api.deepseek.com" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">DeepSeek API的基础URL。</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
+                        <input type="text" id="deepseekModelName" placeholder="deepseek-reasoner" value="deepseek-reasoner" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">要使用的DeepSeek模型名称，如deepseek-reasoner, deepseek-chat等。</p>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
+                    <button id="cancelConfigBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-lg transition-colors">
+                        取消
+                    </button>
+                    <button id="saveConfigBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+                        保存配置
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript will be included here -->
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
